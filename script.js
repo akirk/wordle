@@ -15298,7 +15298,8 @@ const guessGrid = document.querySelector("[data-guess-grid]")
 const offsetFromDate = new Date(2022, 0, 1)
 const msOffset = Date.now() - offsetFromDate
 const dayOffset = msOffset / 1000 / 60 / 60 / 24
-const targetWord = targetWords[Math.floor(dayOffset)]
+// const targetWord = targetWords[Math.floor(dayOffset)]
+const targetWord = targetWords[Math.floor(Math.random() * targetWords.length)]
 
 startInteraction()
 
