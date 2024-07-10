@@ -15299,7 +15299,11 @@ const offsetFromDate = new Date(2022, 0, 1)
 const msOffset = Date.now() - offsetFromDate
 const dayOffset = msOffset / 1000 / 60 / 60 / 24
 // const targetWord = targetWords[Math.floor(dayOffset)]
-const targetWord = targetWords[Math.floor(Math.random() * targetWords.length)]
+const metaWordleTarget = document.querySelector('meta[name="wordle-target"]')?.content;
+const targetWord = metaWordleTarget ? metaWordleTarget : targetWords[Math.floor(Math.random() * targetWords.length)];
+if ( metaWordleTarget ) {
+  showAlert("Wordle");
+}
 
 startInteraction()
 
