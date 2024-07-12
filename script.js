@@ -15300,6 +15300,7 @@ const msOffset = Date.now() - offsetFromDate
 const dayOffset = msOffset / 1000 / 60 / 60 / 24
 // const targetWord = targetWords[Math.floor(dayOffset)]
 const metaWordleTarget = document.querySelector('meta[name="wordle-target"]')?.content;
+const metaWordleMeta = document.querySelector('meta[name="wordle-meta"]')?.content ?? '';
 const targetWord = metaWordleTarget ? metaWordleTarget : targetWords[Math.floor(Math.random() * targetWords.length)];
 if ( metaWordleTarget ) {
   showAlert("Wordle");
@@ -15434,7 +15435,7 @@ function getActiveTiles() {
 
 function showAlert(message, duration = 1000) {
   const alert = document.createElement("div")
-  alert.textContent = message
+  alert.innerHTML = message
   alert.classList.add("alert")
   alertContainer.prepend(alert)
   if (duration == null) return
@@ -15462,14 +15463,15 @@ function shakeTiles(tiles) {
 
 function checkWinLose(guess, tiles) {
   if (guess === targetWord) {
-    showAlert("You Win", 5000)
     danceTiles(tiles)
-    stopInteraction()
+    stopInteraction();
+    shareResult('You Win!')
     return
   }
 
   const remainingTiles = guessGrid.querySelectorAll(":not([data-letter])")
   if (remainingTiles.length === 0) {
+    shareResult('You Lost. Solution: ' + targetWord.toUpperCase())
     showAlert(targetWord.toUpperCase(), null)
     stopInteraction()
   }
@@ -15488,4 +15490,53 @@ function danceTiles(tiles) {
       )
     }, (index * DANCE_ANIMATION_DURATION) / 5)
   })
+}
+
+function shareResult( result ) {
+  let steps = guessGrid.querySelectorAll('div.tile');
+  let visualisation = '';
+  let c = 0;
+  for (let i = 0; i < steps.length; i++) {
+    if ( ! steps[i].dataset.state ) {
+      break;
+    }
+    switch ( steps[i].dataset.state ) {
+      case 'correct':
+        visualisation += '🟩';
+        break;
+      case 'wrong-location':
+        visualisation += '🟨';
+        break;
+      default:
+        visualisation += '⬜';
+      }
+      if ( i % 5 == 4 ) {
+        c += 1;
+        visualisation += '\n';
+      }
+    }
+    let out = result;
+    if ( result == 'You Win!' ) {
+      switch ( c ) {
+        case 1: out = 'Fantastic! '; break;
+        case 6: out = 'Phew! '; break;
+      }
+    }
+
+    out += '<br><br>';
+    let cb = 'Wordle ' + metaWordleMeta + ' ' + c + '/6';
+    if ( c == 6 ) {
+      cb += '😅';
+    }
+    cb += '\n\n' + visualisation;
+
+    out += '<div class="clipboard">' + cb + '</div>';
+
+    navigator.clipboard.writeText(cb).then(function() {
+      showAlert(out + '\n(Copied to clipboard)', null);
+    }, function() {
+      showAlert(out + '\n(Clipboard error)', null);
+    });
+    return visualisation;
+
 }

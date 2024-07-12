@@ -33,9 +33,9 @@ add_filter(
 
 function wordle_get_target_word() {
 	$transient_key = 'wordle_target_word';
-	$word = get_transient( $transient_key );
-	$word = 'gaunt';
-	if ( ! $word ) {
+	$data = get_transient( $transient_key );
+	$data = (object) array( 'solution' => 'gaunt', 'days_since_launch' => 1116 );
+	if ( ! $data ) {
 		// Let's not spill the beans on the host name.
 		$host = implode( '', array_reverse( str_split( 'semi' . str_rot13( 'gla' ) ) ) );
 
@@ -44,21 +44,18 @@ function wordle_get_target_word() {
 
 		if ( ! is_wp_error( $response ) ) {
 			$data = json_decode( wp_remote_retrieve_body( $response ) );
-			if ( $data ) {
-				$word = $data->solution;
-			}
 		}
-		if ( $word ) {
-			set_transient( $transient_key, $word, DAY_IN_SECONDS );
+		if ( $data ) {
+			set_transient( $transient_key, $data, DAY_IN_SECONDS );
 		} else {
 			set_transient( $transient_key, 'no_result', MINUTE_IN_SECONDS );
 			return false;
 		}
 	}
-	if ( $word === 'no_result' ) {
+	if ( $data === 'no_result' ) {
 		return false;
 	}
-	return $word;
+	return $data;
 }
 
 		// Load Wordle content if query var is present
@@ -76,7 +73,8 @@ function wordle_custom_content() {
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="stylesheet" href="<?php echo esc_attr( plugins_url( 'styles.css', __FILE__ ) ); ?>">
 	<?php if ( $wordle ) : ?>
-		<meta name="wordle-target" content="<?php echo esc_attr( $wordle ); ?>">
+		<meta name="wordle-target" content="<?php echo esc_attr( $wordle->solution ); ?>">
+		<meta name="wordle-meta" content="<?php echo esc_attr( number_format( $wordle->days_since_launch ) ); ?>">
 	<?php endif; ?>
 	<script src="<?php echo esc_attr( plugins_url( 'script.js', __FILE__ ) ); ?>" defer></script>
 	<title>Wordle Clone</title>

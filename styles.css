@@ -244,3 +244,11 @@ body {
     font-size: 3em;
   }
 }
+.clipboard {
+  white-space: pre-wrap;
+  border: 1px solid #999;
+  border-radius: 5px;
+  padding: 1em;
+  color: #fff;
+  background: #000;
+}
