@@ -34,7 +34,6 @@ add_filter(
 function wordle_get_target_word() {
 	$transient_key = 'wordle_target_word';
 	$data = get_transient( $transient_key );
-	$data = (object) array( 'solution' => 'gaunt', 'days_since_launch' => 1116 );
 	if ( ! $data ) {
 		// Let's not spill the beans on the host name.
 		$host = implode( '', array_reverse( str_split( 'semi' . str_rot13( 'gla' ) ) ) );
