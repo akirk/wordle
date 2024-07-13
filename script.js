@@ -15305,8 +15305,37 @@ const targetWord = metaWordleTarget ? metaWordleTarget : targetWords[Math.floor(
 if ( metaWordleTarget ) {
   showAlert("Wordle");
 }
-
+const storageKey = "wordle-" + new Date().toISOString().split("T")[0]
+loadPrevious()
 startInteraction()
+
+function loadPrevious() {
+  const previousGuesses = localStorage.getItem(storageKey).split( '' );
+  const tiles = guessGrid.querySelectorAll("div.tile")
+  let guess = '';
+  tiles.forEach((tile, index) => {
+    const previousGuess = previousGuesses[index]
+    if (previousGuess == null) return
+      guess += previousGuess
+    tile.dataset.letter = previousGuess
+    tile.textContent = previousGuess
+    tile.dataset.state = "active"
+    tile.textcontent = previousGuess
+    if ( guess.length === WORD_LENGTH ) {
+      const activeTiles = [...getActiveTiles()]
+      activeTiles.forEach((...params) => flipTile(...params, guess, 0))
+      activeTiles.forEach((...params) => flipTile(...params, guess, 0))
+      guess = '';
+    }
+  } );
+}
+
+function saveGuesses() {
+  const tiles = guessGrid.querySelectorAll("div.tile");
+  const previousGuesses = Array.from(tiles).map(tile => tile.dataset.letter ).join( '' );
+  localStorage.setItem( storageKey, previousGuesses )
+}
+
 
 function startInteraction() {
   document.addEventListener("click", handleMouseClick)
@@ -15389,42 +15418,47 @@ function submitGuess() {
   }
 
   stopInteraction()
+  saveGuesses()
   activeTiles.forEach((...params) => flipTile(...params, guess))
 }
 
-function flipTile(tile, index, array, guess) {
+function flipTile(tile, index, array, guess, speed) {
   const letter = tile.dataset.letter
   const key = keyboard.querySelector(`[data-key="${letter}"i]`)
-  setTimeout(() => {
-    tile.classList.add("flip")
-  }, (index * FLIP_ANIMATION_DURATION) / 2)
+  function flipend() {
+    tile.classList.remove("flip")
+    if (targetWord[index] === letter) {
+      tile.dataset.state = "correct"
+      key.classList.add("correct")
+    } else if (targetWord.includes(letter)) {
+      tile.dataset.state = "wrong-location"
+      key.classList.add("wrong-location")
+    } else {
+      tile.dataset.state = "wrong"
+      key.classList.add("wrong")
+    }
 
+    if (index === array.length - 1) {
+      tile.addEventListener(
+        "transitionend",
+        () => {
+          startInteraction()
+          checkWinLose(guess, array)
+        },
+        { once: true }
+      )
+    }
+  }
+  if ( speed === undefined ) {
+    setTimeout(() => {
+      tile.classList.add("flip")
+    }, (index * FLIP_ANIMATION_DURATION) / 2)
+  } else {
+    flipend()
+  }
   tile.addEventListener(
     "transitionend",
-    () => {
-      tile.classList.remove("flip")
-      if (targetWord[index] === letter) {
-        tile.dataset.state = "correct"
-        key.classList.add("correct")
-      } else if (targetWord.includes(letter)) {
-        tile.dataset.state = "wrong-location"
-        key.classList.add("wrong-location")
-      } else {
-        tile.dataset.state = "wrong"
-        key.classList.add("wrong")
-      }
-
-      if (index === array.length - 1) {
-        tile.addEventListener(
-          "transitionend",
-          () => {
-            startInteraction()
-            checkWinLose(guess, array)
-          },
-          { once: true }
-        )
-      }
-    },
+    flipend,
     { once: true }
   )
 }
