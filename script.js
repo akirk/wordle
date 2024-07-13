@@ -15519,6 +15519,7 @@ function shareResult( result ) {
     if ( result == 'You Win!' ) {
       switch ( c ) {
         case 1: out = 'Fantastic! '; break;
+        case 2: out = 'Magnificent! '; break;
         case 6: out = 'Phew! '; break;
       }
     }
