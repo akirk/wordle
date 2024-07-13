@@ -15306,28 +15306,33 @@ if ( metaWordleTarget ) {
   showAlert("Wordle");
 }
 const storageKey = "wordle-" + new Date().toISOString().split("T")[0]
-loadPrevious()
 startInteraction()
+loadPrevious()
 
 function loadPrevious() {
-  const previousGuesses = localStorage.getItem(storageKey).split( '' );
+  const previousGuesses = ( localStorage.getItem(storageKey) ?? '' ).split( '' );
   const tiles = guessGrid.querySelectorAll("div.tile")
   let guess = '';
+  let activeTiles = [];
   tiles.forEach((tile, index) => {
     const previousGuess = previousGuesses[index]
     if (previousGuess == null) return
-      guess += previousGuess
+    if ( guess.length === WORD_LENGTH ) {
+      guess = '';
+    }
+    guess += previousGuess
     tile.dataset.letter = previousGuess
     tile.textContent = previousGuess
     tile.dataset.state = "active"
     tile.textcontent = previousGuess
     if ( guess.length === WORD_LENGTH ) {
-      const activeTiles = [...getActiveTiles()]
+      activeTiles = [...getActiveTiles()]
       activeTiles.forEach((...params) => flipTile(...params, guess, 0))
-      activeTiles.forEach((...params) => flipTile(...params, guess, 0))
-      guess = '';
     }
   } );
+  if ( activeTiles.length ) {
+    checkWinLose(guess, activeTiles)
+  }
 }
 
 function saveGuesses() {
@@ -15425,7 +15430,7 @@ function submitGuess() {
 function flipTile(tile, index, array, guess, speed) {
   const letter = tile.dataset.letter
   const key = keyboard.querySelector(`[data-key="${letter}"i]`)
-  function flipend() {
+  const flipend = function () {
     tile.classList.remove("flip")
     if (targetWord[index] === letter) {
       tile.dataset.state = "correct"
@@ -15453,14 +15458,14 @@ function flipTile(tile, index, array, guess, speed) {
     setTimeout(() => {
       tile.classList.add("flip")
     }, (index * FLIP_ANIMATION_DURATION) / 2)
+    tile.addEventListener(
+      "transitionend",
+      flipend,
+      { once: true }
+    )
   } else {
     flipend()
   }
-  tile.addEventListener(
-    "transitionend",
-    flipend,
-    { once: true }
-  )
 }
 
 function getActiveTiles() {
