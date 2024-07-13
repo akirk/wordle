@@ -32,7 +32,7 @@ add_filter(
 );
 
 function wordle_get_target_word() {
-	$transient_key = 'wordle_target_word';
+	$transient_key = 'wordle_target_word' . date( 'Y-m-d' );
 	$data = get_transient( $transient_key );
 	if ( ! $data ) {
 		// Let's not spill the beans on the host name.
