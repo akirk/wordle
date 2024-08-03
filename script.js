@@ -15368,13 +15368,15 @@ function handleMouseClick(e) {
     deleteKey()
     return
   }
-  if (e.target.closest(".clipboard")) {
+}
+document.addEventListener("click", function (e) {
+  if (e.target.matches(".clipboard")) {
     navigator.clipboard.writeText(cb).then(() => {
       showAlert("Copied to clipboard", 2000)
     });
     return
   }
-}
+});
 
 function handleKeyPress(e) {
   if (e.key === "Enter") {
