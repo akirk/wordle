@@ -15368,8 +15368,10 @@ function handleMouseClick(e) {
     deleteKey()
     return
   }
-  if (e.target.matches(".clipboard")) {
-    navigator.clipboard.writeText(cb);
+  if (e.target.closest(".clipboard")) {
+    navigator.clipboard.writeText(cb).then(() => {
+      showAlert("Copied to clipboard", 2000)
+    });
     return
   }
 }
