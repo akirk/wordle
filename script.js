@@ -15302,6 +15302,7 @@ const dayOffset = msOffset / 1000 / 60 / 60 / 24
 const metaWordleTarget = document.querySelector('meta[name="wordle-target"]')?.content;
 const metaWordleMeta = document.querySelector('meta[name="wordle-meta"]')?.content ?? '';
 const targetWord = metaWordleTarget ? metaWordleTarget : targetWords[Math.floor(Math.random() * targetWords.length)];
+let cb = '';
 if ( metaWordleTarget ) {
   showAlert("Wordle");
 }
@@ -15365,6 +15366,10 @@ function handleMouseClick(e) {
 
   if (e.target.matches("[data-delete]")) {
     deleteKey()
+    return
+  }
+  if (e.target.matches(".clipboard")) {
+    navigator.clipboard.writeText(cb);
     return
   }
 }
@@ -15564,7 +15569,7 @@ function shareResult( result ) {
     }
 
     out += '<br><br>';
-    let cb = 'Wordle ' + metaWordleMeta + ' ' + c + '/6';
+    cb = 'Wordle ' + metaWordleMeta + ' ' + c + '/6';
     if ( c == 6 ) {
       cb += '😅';
     }
