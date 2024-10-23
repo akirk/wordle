@@ -15356,7 +15356,7 @@ function stopInteraction() {
 }
 
 function copyResultClick(e) {
-    if (e.target.matches(".clipboard")) {
+    if (e.target.matches(".alert-container")) {
     copyResult('');
     return
   }
