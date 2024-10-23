@@ -15597,6 +15597,7 @@ function shareResult( result ) {
     }
     cb += '\n\n' + visualisation;
 
+    copyResult( out );
     return visualisation;
 
 }
