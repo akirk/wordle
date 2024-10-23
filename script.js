@@ -15346,12 +15346,13 @@ function saveGuesses() {
 function startInteraction() {
   document.addEventListener("click", handleMouseClick)
   document.addEventListener("keydown", handleKeyPress)
+  document.removeEventListener("click", copyResultClick)
 }
 
 function stopInteraction() {
   document.removeEventListener("click", handleMouseClick)
   document.removeEventListener("keydown", handleKeyPress)
-  document.removeEventListener("click", copyResultClick)
+  document.addEventListener("click", copyResultClick)
 }
 
 function copyResultClick(e) {
