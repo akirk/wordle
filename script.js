@@ -15351,6 +15351,14 @@ function startInteraction() {
 function stopInteraction() {
   document.removeEventListener("click", handleMouseClick)
   document.removeEventListener("keydown", handleKeyPress)
+  document.removeEventListener("click", copyResultClick)
+}
+
+function copyResultClick(e) {
+    if (e.target.matches(".clipboard")) {
+    copyResult('');
+    return
+  }
 }
 
 function handleMouseClick(e) {
@@ -15540,6 +15548,16 @@ function danceTiles(tiles) {
   })
 }
 
+function copyResult( out) {
+    out += '<div class="clipboard">' + cb + '</div>';
+
+    navigator.clipboard.writeText(cb).then(function() {
+      showAlert(out + '\n(Copied to clipboard)', null);
+    }, function() {
+      showAlert(out + '\n(Clipboard error)', null);
+    });
+}
+
 function shareResult( result ) {
   let steps = guessGrid.querySelectorAll('div.tile');
   let visualisation = '';
@@ -15579,13 +15597,6 @@ function shareResult( result ) {
     }
     cb += '\n\n' + visualisation;
 
-    out += '<div class="clipboard">' + cb + '</div>';
-
-    navigator.clipboard.writeText(cb).then(function() {
-      showAlert(out + '\n(Copied to clipboard)', null);
-    }, function() {
-      showAlert(out + '\n(Clipboard error)', null);
-    });
     return visualisation;
 
 }
