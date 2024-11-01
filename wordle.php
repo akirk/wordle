@@ -32,13 +32,14 @@ add_filter(
 );
 
 function wordle_get_target_word() {
-	$transient_key = 'wordle_target_word' . date( 'Y-m-d' );
+	$date = date( 'Y-m-d' );
+	$transient_key = 'wordle_target_word' . $date;
 	$data = get_transient( $transient_key );
 	if ( ! $data ) {
 		// Let's not spill the beans on the host name.
 		$host = implode( '', array_reverse( str_split( 'semi' . str_rot13( 'gla' ) ) ) );
 
-		$url = 'https://www.' . $host . '.com/svc/wordle/v2/' . date( 'Y-m-d' ) . '.json';
+		$url = 'https://www.' . $host . '.com/svc/wordle/v2/' . $date . '.json';
 		$response = wp_remote_get( $url );
 
 		if ( ! is_wp_error( $response ) ) {
