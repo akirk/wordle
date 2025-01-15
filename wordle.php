@@ -71,7 +71,7 @@ function wordle_custom_content() {
 <head>
 		<?php wp_head(); ?>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link rel="stylesheet" href="<?php echo esc_attr( plugins_url( 'styles.css', __FILE__ ) . '?' . filemtime( __DIR__ . '/script.js' ) ); ?>">
+	<link rel="stylesheet" href="<?php echo esc_attr( plugins_url( 'styles.css', __FILE__ ) . '?' . filemtime( __DIR__ . '/styles.css' ) ); ?>">
 	<?php if ( $wordle ) : ?>
 		<meta name="wordle-target" content="<?php echo esc_attr( $wordle->solution ); ?>">
 		<meta name="wordle-meta" content="<?php echo esc_attr( number_format( $wordle->days_since_launch ) ); ?>">

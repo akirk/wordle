@@ -108,11 +108,13 @@ body {
 
 .tile[data-state="wrong-location"] {
   border: none;
+  padding-top: 5px;
+  border-bottom: 5px solid #fff;
   background-color: hsl(49, 51%, 47%);
 }
 
 .tile[data-state="correct"] {
-  border: none;
+  border: 5px solid  #fff;
   background-color: hsl(115, 29%, 43%);
 }
 
