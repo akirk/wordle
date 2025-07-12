@@ -15306,9 +15306,12 @@ let cb = '';
 if ( metaWordleTarget ) {
   showAlert("Wordle");
 }
-const storageKey = "wordle-" + new Date().toISOString().split("T")[0]
-startInteraction()
-loadPrevious()
+const storageKey = "wordle-" + new Date().toISOString().split("T")[0];
+if ( metaWordleTarget ) {
+  localStorage.setItem( 'solution' + storageKey, metaWordleTarget);
+}
+startInteraction();
+loadPrevious();
 
 function loadPrevious() {
   const previousGuesses = ( localStorage.getItem(storageKey) ?? '' ).split( '' );
@@ -15384,6 +15387,47 @@ document.addEventListener("click", function (e) {
       showAlert("Copied to clipboard", 2000)
     });
     return
+  }
+  if ( e.target.matches(".old-results") ) {
+    // check what old results we have in localstorage and display each one
+    const keys = Object.keys(localStorage).filter(key => key.startsWith("wordle-")).sort().reverse();
+    if ( keys.length === 0 ) {
+      showAlert("No previous results found", 2000);
+      return;
+    }
+    const results = keys.map(key => {
+      const date = key.substring(7);
+      const guesses = [];
+      let index;
+      for (index = 0; index < localStorage.getItem(key).length; index += 5) {
+        guesses.push( localStorage.getItem(key).substr(index, 5) );
+      }
+      const targetWord = guesses[guesses.length-1];
+      let visualisation = '';
+      let c = 0;
+      for (let i = 0; i < guesses.length; i++) {
+        let guess = guesses[i];
+        for (index = 0; index < guess.length; index++) {
+          let letter = guess[index];
+          if (targetWord[index] === letter) {
+            visualisation += '🟩';
+          } else {
+            const alreadyMarked = [...guess].slice(0,  Math.min(index, guess.length)).some(g => g === letter);
+            if ( ! alreadyMarked && targetWord.includes(letter) ) {
+              visualisation += '🟨';
+            } else {
+              visualisation += '⬜';
+            }
+          }
+        }
+        visualisation += '<br>';
+      }
+      const nr = Math.floor( ( new Date(date) - new Date(2021, 5, 19) ) / 86400000 );
+
+      return `<div class="clipboard">Wordle ${nr.toLocaleString()} ${guesses.length}/6:<br>${visualisation}</div><br>`;
+    }).join('');
+
+    document.querySelector(".bottom-nav").innerHTML = results;
   }
 });
 
@@ -15556,9 +15600,9 @@ function copyResult( out) {
     out += '<div class="clipboard">' + cb + '</div>';
 
     navigator.clipboard.writeText(cb).then(function() {
-      showAlert(out + '\n(Copied to clipboard)', null);
+      showAlert(out + '\n(Copied to clipboard)', 2000);
     }, function() {
-      showAlert(out + '\n(Clipboard error)', null);
+      showAlert(out + '\n(Clipboard error)', 2000);
     });
 }
 
