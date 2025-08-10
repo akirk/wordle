@@ -15489,6 +15489,7 @@ function submitGuess() {
   activeTiles.forEach((...params) => flipTile(...params, guess))
 }
 
+
 function flipTile(tile, index, array, guess, speed) {
   const letter = tile.dataset.letter
   const key = keyboard.querySelector(`[data-key="${letter}"i]`)
@@ -15497,15 +15498,12 @@ function flipTile(tile, index, array, guess, speed) {
     if (targetWord[index] === letter) {
       tile.dataset.state = "correct"
       key.classList.add("correct")
+    } else if (shouldMarkAsWrongLocation(guess, letter, index, targetWord)) {
+      tile.dataset.state = "wrong-location"
+      key.classList.add("wrong-location")
     } else {
-      const alreadyMarked = [...guess].slice(0,  Math.min(index, guess.length)).some(g => g === letter);
-      if ( ! alreadyMarked && targetWord.includes(letter) ) {
-        tile.dataset.state = "wrong-location"
-        key.classList.add("wrong-location")
-      } else {
-        tile.dataset.state = "wrong"
-        key.classList.add("wrong")
-      }
+      tile.dataset.state = "wrong"
+      key.classList.add("wrong")
     }
 
     if (index === array.length - 1) {

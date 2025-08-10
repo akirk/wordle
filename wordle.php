@@ -76,6 +76,7 @@ function wordle_custom_content() {
 		<meta name="wordle-target" content="<?php echo esc_attr( $wordle->solution ); ?>">
 		<meta name="wordle-meta" content="<?php echo esc_attr( number_format( $wordle->days_since_launch ) ); ?>">
 	<?php endif; ?>
+	<script src="<?php echo esc_attr( plugins_url( 'letter-logic.js', __FILE__ ) . '?' . filemtime( __DIR__ . '/letter-logic.js' ) ); ?>"></script>
 	<script src="<?php echo esc_attr( plugins_url( 'script.js', __FILE__ ) . '?' . filemtime( __DIR__ . '/script.js' ) ); ?>" defer></script>
 	<title>Wordle Clone</title>
 </head>

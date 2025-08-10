@@ -1,0 +1,8 @@
+{
+    "name": "wordle-plugin/wordle",
+    "description": "Wordle game plugin for WordPress",
+    "type": "wordpress-plugin",
+    "scripts": {
+        "test": "echo 'Running Wordle tests...' && if command -v node >/dev/null 2>&1; then node test.js; else echo 'Node.js not found, open test.html in browser to run tests'; fi"
+    }
+}

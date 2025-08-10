@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle Letter Check Tests</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .pass { background-color: #d4edda; border-color: #c3e6cb; }
+        .fail { background-color: #f8d7da; border-color: #f5c6cb; }
+        .test-grid { display: grid; grid-template-columns: repeat(5, 40px); gap: 5px; margin: 10px 0; }
+        .test-tile { 
+            width: 40px; height: 40px; border: 2px solid #ccc; 
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold;
+        }
+        .correct { background-color: #6aaa64; color: white; }
+        .wrong-location { background-color: #c9b458; color: white; }
+        .wrong { background-color: #787c7e; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Wordle Letter Check Tests</h1>
+    <div id="results"></div>
+
+    <script src="letter-logic.js"></script>
+    <script>
+
+        // Test cases
+        const testCases = [
+            {
+                name: "Bug scenario: minty vs jetty",
+                target: "minty",
+                guess: "jetty",
+                expected: ["wrong", "wrong", "wrong", "correct", "correct"]
+            },
+            {
+                name: "Simple correct word",
+                target: "hello",
+                guess: "hello",
+                expected: ["correct", "correct", "correct", "correct", "correct"]
+            },
+            {
+                name: "No matches",
+                target: "hello",
+                guess: "party",
+                expected: ["wrong", "wrong", "wrong", "wrong", "wrong"]
+            },
+            {
+                name: "Double letter in guess, single in target",
+                target: "hello",
+                guess: "llama",
+                expected: ["wrong-location", "correct", "wrong", "wrong", "wrong"]
+            },
+            {
+                name: "Double letter in target, single in guess",
+                target: "llama",
+                guess: "hello",
+                expected: ["wrong", "wrong-location", "correct", "correct", "wrong"]
+            },
+            {
+                name: "Multiple same letters - complex case",
+                target: "alley",
+                guess: "lllll",
+                expected: ["wrong-location", "correct", "correct", "wrong", "wrong"]
+            }
+        ]
+
+        function runTests() {
+            const resultsDiv = document.getElementById('results')
+            let passCount = 0
+
+            testCases.forEach((testCase, index) => {
+                const result = evaluateGuess(testCase.guess, testCase.target)
+                const passed = JSON.stringify(result) === JSON.stringify(testCase.expected)
+                
+                if (passed) passCount++
+
+                const testDiv = document.createElement('div')
+                testDiv.className = `test-case ${passed ? 'pass' : 'fail'}`
+                
+                const gridDiv = document.createElement('div')
+                gridDiv.className = 'test-grid'
+                
+                for (var i = 0; i < testCase.guess.length; i++) {
+                    var letter = testCase.guess[i]
+                    var tile = document.createElement('div')
+                    tile.className = 'test-tile ' + result[i]
+                    tile.textContent = letter.toUpperCase()
+                    gridDiv.appendChild(tile)
+                }
+
+                testDiv.innerHTML = `
+                    <h3>${testCase.name} - ${passed ? 'PASS' : 'FAIL'}</h3>
+                    <p><strong>Target:</strong> ${testCase.target.toUpperCase()}</p>
+                    <p><strong>Guess:</strong> ${testCase.guess.toUpperCase()}</p>
+                    <p><strong>Expected:</strong> ${JSON.stringify(testCase.expected)}</p>
+                    <p><strong>Got:</strong> ${JSON.stringify(result)}</p>
+                `
+                testDiv.appendChild(gridDiv)
+                resultsDiv.appendChild(testDiv)
+            })
+
+            const summaryDiv = document.createElement('div')
+            summaryDiv.innerHTML = `
+                <h2>Test Summary: ${passCount}/${testCases.length} tests passed</h2>
+            `
+            resultsDiv.insertBefore(summaryDiv, resultsDiv.firstChild)
+        }
+
+        runTests()
+    </script>
+</body>
+</html>
