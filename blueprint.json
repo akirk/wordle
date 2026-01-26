@@ -1,0 +1,24 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Wordle",
+		"description": "A Wordle game plugin for WordPress",
+		"author": "Alex Kirk"
+	},
+	"landingPage": "/wordle/",
+	"login": true,
+	"steps": [
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "git:directory",
+				"url": "https://github.com/akirk/wordle",
+				"ref": "main",
+				"refType": "branch"
+			},
+			"options": {
+				"targetFolderName": "wordle"
+			}
+		}
+	]
+}
