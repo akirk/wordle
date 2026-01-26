@@ -7,6 +7,16 @@ Description: Add a Wordle to the site under /wordle/
 // Hook into WordPress
 add_action( 'init', 'wordle_rewrite_rule' );
 
+// Flush rewrite rules on plugin activation
+register_activation_hook( __FILE__, 'wordle_activate' );
+
+function wordle_activate() {
+	// Register the rewrite rule
+	wordle_rewrite_rule();
+	// Flush rewrite rules so the new rule takes effect immediately
+	flush_rewrite_rules();
+}
+
 // Add rewrite rule to show Wordle when /wordle/ is accessed
 function wordle_rewrite_rule() {
 	add_rewrite_rule( '^wordle/?$', 'index.php?wordle=true', 'top' );
