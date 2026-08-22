@@ -2,6 +2,7 @@
 /*
 Plugin Name: Wordle Plugin
 Description: Add a Wordle to the site under /wordle/
+Tested up to: 7.1
 */
 
 use WpApp\WpApp;
