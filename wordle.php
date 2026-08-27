@@ -17,8 +17,8 @@ $wordle_app = new WpApp(
 	__DIR__ . '/templates',
 	'wordle',
 	array(
-		'app_name'     => 'Wordle',
-		'my_apps_icon' => plugins_url( 'logo.png', __FILE__ ),
+		'app_name' => 'Wordle',
+		'app_icon' => plugins_url( 'logo.png', __FILE__ ),
 	)
 );
 $wordle_app->route( 'dictionary' );
