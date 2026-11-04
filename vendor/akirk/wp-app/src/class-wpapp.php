@@ -18,10 +18,14 @@ class WpApp {
     private $custom_roles        = [];
     private $app_name            = null;
     private $app_name_textdomain = null;
-    private $my_apps             = true;
-    private $my_apps_icon        = null;
+    private $launcher            = true;
+    private $app_icon            = null;
+    private $app_icon_background = null;
+    private $app_icon_color      = null;
+    private $app_icon_shadow     = null;
     private $pwa_config          = null;
     private $wp_app_requirement  = null;
+    private $themes;
 
     public function __construct( $template_directory = '', $url_path = 'app', $config = [] ) {
         // Handle legacy parameter style
@@ -33,6 +37,8 @@ class WpApp {
         $this->template_directory = $template_directory;
         $this->router             = new Router( $template_directory, $url_path );
         $this->masterbar          = new Masterbar( $url_path, $this );
+        $this->themes             = new Themes( $url_path, $template_directory, $this->masterbar );
+        $this->router->set_template_directories_provider( [ $this->themes, 'get_template_directories' ] );
 
         // Apply configuration
         $this->apply_config( $config );
@@ -63,17 +69,34 @@ class WpApp {
             $this->masterbar->admin_bar_app_link( $config['admin_bar_app_link'] );
         }
 
-        // Access control configuration
+        // Access control configuration.
+        // require_capability (or its alias minimal_capability) always wins:
+        // any capability check implies a logged-in user. require_login only
+        // decides between 'read' (logged in) and no requirement (public) when
+        // no explicit capability is configured. It defaults to true.
+        $capability = null;
         if ( isset( $config['require_capability'] ) ) {
-            $this->require_capability( $config['require_capability'] );
+            $capability = $config['require_capability'];
+        } elseif ( isset( $config['minimal_capability'] ) ) {
+            $capability = $config['minimal_capability'];
         }
 
-        if ( isset( $config['minimal_capability'] ) ) {
-            $this->require_capability( $config['minimal_capability'] );
-        }
-
-        if ( isset( $config['require_login'] ) && $config['require_login'] ) {
+        if ( $capability ) {
+            $this->require_capability( $capability );
+        } elseif ( ! isset( $config['require_login'] ) || $config['require_login'] ) {
             $this->require_capability( 'read' );
+        }
+
+        // Post types and taxonomies the app owns: REST reads are gated with the
+        // app's capability (or a per-type one), and launchers treat them as
+        // the app's content.
+        if ( class_exists( __NAMESPACE__ . '\\Rest\\Access' ) ) {
+            foreach ( self::normalize_owned_types( $config['post_types'] ?? [], $this->required_capability ) as $post_type => $cap ) {
+                Rest\Access::protect_post_type( $post_type, $cap );
+            }
+            foreach ( self::normalize_owned_types( $config['taxonomies'] ?? [], $this->required_capability ) as $taxonomy => $cap ) {
+                Rest\Access::protect_taxonomy( $taxonomy, $cap );
+            }
         }
 
         // Clear admin bar if requested
@@ -90,13 +113,29 @@ class WpApp {
             $this->app_name_textdomain = $config['app_name_textdomain'];
         }
 
-        // My Apps plugin integration
-        if ( isset( $config['my_apps'] ) ) {
-            $this->my_apps = $config['my_apps'];
+        // Launcher integration (My Apps + OpenStation).
+        // my_apps / my_apps_icon are the pre-OpenStation names of the same options.
+        if ( isset( $config['launcher'] ) ) {
+            $this->launcher = $config['launcher'];
+        } elseif ( isset( $config['my_apps'] ) ) {
+            $this->launcher = $config['my_apps'];
         }
 
-        if ( isset( $config['my_apps_icon'] ) ) {
-            $this->my_apps_icon = $config['my_apps_icon'];
+        if ( isset( $config['app_icon'] ) ) {
+            $this->app_icon = $config['app_icon'];
+        } elseif ( isset( $config['my_apps_icon'] ) ) {
+            $this->app_icon = $config['my_apps_icon'];
+        }
+
+        // Tile styling for Dashicon, emoji and letter icons.
+        if ( isset( $config['app_icon_background'] ) ) {
+            $this->app_icon_background = $config['app_icon_background'];
+        }
+        if ( isset( $config['app_icon_color'] ) ) {
+            $this->app_icon_color = $config['app_icon_color'];
+        }
+        if ( isset( $config['app_icon_shadow'] ) ) {
+            $this->app_icon_shadow = $config['app_icon_shadow'];
         }
 
         if ( isset( $config['pwa'] ) && false !== $config['pwa'] ) {
@@ -106,6 +145,30 @@ class WpApp {
         if ( isset( $config['wp_app_requirement'] ) ) {
             $this->wp_app_requirement = (string) $config['wp_app_requirement'];
         }
+    }
+
+    /**
+     * Normalize the post_types / taxonomies config into key => capability.
+     *
+     * Accepts a list of keys (`[ 'book' ]`), which use the app's capability,
+     * or a map (`[ 'book' => 'edit_posts' ]`) with a capability per key.
+     *
+     * @param mixed       $types      Config value.
+     * @param string|null $capability The app's capability, or null for login only.
+     * @return array<string,string|null>
+     */
+    private static function normalize_owned_types( $types, $capability ) {
+        $normalized = [];
+        foreach ( (array) $types as $key => $value ) {
+            if ( is_int( $key ) ) {
+                if ( is_string( $value ) && '' !== $value ) {
+                    $normalized[ $value ] = $capability ? $capability : null;
+                }
+            } elseif ( is_string( $key ) && '' !== $key ) {
+                $normalized[ $key ] = is_string( $value ) && '' !== $value ? $value : null;
+            }
+        }
+        return $normalized;
     }
 
     /**
@@ -138,10 +201,11 @@ class WpApp {
         $this->masterbar->auto_render();
 
         // Hook into WordPress activation
-        add_action( 'wp_loaded', [ $this, 'on_wp_loaded' ] );
+        // Rebuild only after other plugins have registered their routes.
+        add_action( 'wp_loaded', [ $this, 'on_wp_loaded' ], 999 );
 
         // Register with My Apps plugin if enabled
-        if ( $this->my_apps !== false ) {
+        if ( $this->launcher !== false ) {
             add_filter( 'my_apps_plugins', [ $this, 'register_my_apps' ] );
         }
 
@@ -247,8 +311,9 @@ class WpApp {
             $this->router->get_app_path(),
             array_merge(
                 [
-                    'name'           => is_string( $this->my_apps ) ? $this->my_apps : $this->get_app_name(),
+                    'name'           => $this->get_launcher_name(),
                     'url'            => home_url( '/' . $this->router->get_app_path() . '/' ),
+                    'launcher'       => $this->launcher,
                     'wp_app_package' => [
                         'expected'        => $this->get_wp_app_requirement(),
                         'expected_source' => $this->get_wp_app_requirement_source(),
@@ -351,32 +416,24 @@ class WpApp {
     }
 
     /**
-     * Get metadata for the loaded wp-app package.
+     * Describe the wp-app copy that is actually running.
      *
-     * @return array Loaded package metadata.
+     * Several plugins can each bundle wp-app; the first Composer autoloader
+     * to run wins and every later copy is skipped by the class/function
+     * guards. Composer\InstalledVersions is unreliable here: each plugin's
+     * autoloader reloads it, so it reports the last plugin's copy, not the
+     * loaded one. The path of this very file and WP_APP_VERSION (defined by
+     * the first functions.php to load) are the only truthful sources.
+     *
+     * @return array{name:string,version:string|null,path:string}
      */
     private static function get_loaded_wp_app_package() {
-        $version = null;
         $path    = self::normalize_path( dirname( __DIR__ ) );
+        $version = defined( 'WP_APP_VERSION' ) ? (string) WP_APP_VERSION : null;
 
-        if ( class_exists( '\Composer\InstalledVersions' ) ) {
-            try {
-                if ( \Composer\InstalledVersions::isInstalled( 'akirk/wp-app' ) ) {
-                    $version       = \Composer\InstalledVersions::getPrettyVersion( 'akirk/wp-app' );
-                    $composer_path = \Composer\InstalledVersions::getInstallPath( 'akirk/wp-app' );
-
-                    if ( is_string( $composer_path ) && '' !== $composer_path ) {
-                        $path = self::normalize_path( $composer_path );
-                    }
-                }
-            } catch ( \Exception $e ) {
-                $version = null;
-            }
-        }
-
-        if ( null === $version && $path && is_readable( $path . DIRECTORY_SEPARATOR . 'composer.json' ) ) {
+        if ( null === $version && is_readable( $path . '/composer.json' ) ) {
             // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading the local loaded package composer.json file.
-            $data = json_decode( file_get_contents( $path . DIRECTORY_SEPARATOR . 'composer.json' ), true );
+            $data = json_decode( file_get_contents( $path . '/composer.json' ), true );
 
             if ( is_array( $data ) && isset( $data['version'] ) && is_string( $data['version'] ) ) {
                 $version = $data['version'];
@@ -480,7 +537,7 @@ class WpApp {
     public function register_my_apps( $apps ) {
         $app_path = $this->router->get_app_path();
 
-        $name = is_string( $this->my_apps ) ? $this->my_apps : $this->get_app_name();
+        $name = $this->get_launcher_name();
 
         $apps[ $app_path ] = array_merge(
             isset( $apps[ $app_path ] ) && is_array( $apps[ $app_path ] ) ? $apps[ $app_path ] : [],
@@ -495,22 +552,102 @@ class WpApp {
     }
 
     /**
+     * Display name for launcher entries: the `launcher` string, else the app name.
+     *
+     * @return string
+     */
+    private function get_launcher_name() {
+        return is_string( $this->launcher ) && '' !== $this->launcher ? $this->launcher : $this->get_app_name();
+    }
+
+    /**
      * Get normalized icon data for My Apps-compatible consumers.
      *
      * @return array Icon data using one of the My Apps icon keys.
      */
     private function get_my_apps_icon_data() {
-        if ( ! is_string( $this->my_apps_icon ) || '' === trim( $this->my_apps_icon ) ) {
-            return [];
+        $data = [];
+
+        if ( is_string( $this->app_icon ) && '' !== trim( $this->app_icon ) ) {
+            $icon = trim( $this->app_icon );
+
+            if ( 0 === strpos( $icon, 'dashicons-' ) ) {
+                $data['dashicon'] = $icon;
+            } else {
+                $data['icon_url'] = $icon;
+            }
         }
 
-        $icon = trim( $this->my_apps_icon );
+        return array_merge( $data, $this->get_icon_style_data() );
+    }
 
-        if ( 0 === strpos( $icon, 'dashicons-' ) ) {
-            return [ 'dashicon' => $icon ];
+    /**
+     * Get the icon tile styling (background, foreground, shadow) for launchers.
+     *
+     * Only styles that pass validation are returned, so a typo degrades to the
+     * launcher's default look instead of producing broken markup.
+     *
+     * @return array Zero or more of icon_background, icon_color, icon_shadow.
+     */
+    private function get_icon_style_data() {
+        $data = [];
+
+        $background = self::sanitize_icon_css_value( $this->app_icon_background );
+        if ( '' !== $background ) {
+            $data['icon_background'] = $background;
         }
 
-        return [ 'icon_url' => $icon ];
+        $color = self::sanitize_icon_css_value( $this->app_icon_color );
+        if ( '' !== $color ) {
+            $data['icon_color'] = $color;
+        }
+
+        if ( true === $this->app_icon_shadow ) {
+            $data['icon_shadow'] = true;
+        } else {
+            $shadow = self::sanitize_icon_css_value( $this->app_icon_shadow );
+            if ( '' !== $shadow ) {
+                $data['icon_shadow'] = $shadow;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Restrict a CSS colour, gradient or shadow value to a safe character set.
+     *
+     * Allows hex colours, named colours, rgb()/hsl() functions, gradients and
+     * shadow lists; rejects anything that could break out of a style attribute
+     * or pull in external resources (url(), var(), expressions).
+     *
+     * @param mixed $value Raw config value.
+     * @return string Sanitized value, or an empty string when rejected.
+     */
+    public static function sanitize_icon_css_value( $value ) {
+        if ( ! is_string( $value ) ) {
+            return '';
+        }
+
+        $value = trim( preg_replace( '/\s+/', ' ', $value ) );
+
+        if ( '' === $value || strlen( $value ) > 300 ) {
+            return '';
+        }
+
+        if ( preg_match( '/[^a-z0-9#.,%()\/\s+-]/i', $value ) ) {
+            return '';
+        }
+
+        if ( substr_count( $value, '(' ) !== substr_count( $value, ')' ) ) {
+            return '';
+        }
+
+        if ( preg_match( '/(?:^|[^a-z-])(?:url|var|attr|expression|image-set|element|env)\s*\(/i', $value ) ) {
+            return '';
+        }
+
+        return $value;
     }
 
     /**
@@ -708,6 +845,46 @@ class WpApp {
      */
     public function add_menu_item( $id, $title, $href = '', $args = [] ) {
         $this->masterbar->add_menu_item( $id, $title, $href, $args );
+    }
+
+    /**
+     * Register an app theme with optional template overrides.
+     *
+     * Theme names are commonly translated. Requiring registration on the
+     * app-specific init filter prevents those translations from being loaded
+     * before WordPress' init action.
+     *
+     * @return bool Whether the theme was registered.
+     */
+    public function register_theme( $slug, $name, $template_directory = '' ) {
+        $init_filter = $this->get_init_filter_name();
+
+        if ( ! function_exists( 'doing_filter' ) || ! doing_filter( $init_filter ) ) {
+            if ( function_exists( '_doing_it_wrong' ) ) {
+                _doing_it_wrong(
+                    __METHOD__,
+                    sprintf(
+                        'Themes must be registered inside the %s filter so translated theme names are not loaded before init.',
+                        $init_filter
+                    ),
+                    '2.0.0'
+                );
+            }
+
+            return false;
+        }
+
+        return $this->themes->register( $slug, $name, $template_directory );
+    }
+
+    /** Get registered app themes. */
+    public function get_themes() {
+        return $this->themes->get_themes();
+    }
+
+    /** Get the current user's selected app theme. */
+    public function get_selected_theme() {
+        return $this->themes->get_selected();
     }
 
     /**

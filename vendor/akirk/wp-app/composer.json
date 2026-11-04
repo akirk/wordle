@@ -1,6 +1,6 @@
 {
     "name": "akirk/wp-app",
-    "description": "A lightweight framework for building web applications on WordPress with routing, admin bar integration, and theme isolation",
+    "description": "A framework to build frontend apps on WordPress with routing, admin bar integration, and theme isolation",
     "type": "library",
     "license": "GPL-2.0-or-later",
     "authors": [
@@ -18,16 +18,20 @@
     },
     "autoload": {
         "files": [
+            "src/bootstrap.php",
+            "src/class-openstation.php",
             "src/class-registry.php",
             "src/class-settings.php",
             "src/class-pwa.php",
             "src/class-router.php",
             "src/class-masterbar.php",
+            "src/class-themes.php",
             "src/class-wpapp.php",
             "src/class-client-encrypted-fields.php",
             "src/BaseStorage.php",
             "src/abstract-baseapp.php",
-            "src/functions.php"
+            "src/functions.php",
+            "src/rest/class-access.php"
         ]
     },
     "autoload-dev": {
@@ -37,6 +41,7 @@
     },
     "scripts": {
         "test": "phpunit",
+        "test:autoload": "php -d opcache.enable=1 -d opcache.enable_cli=1 -r 'require \"vendor/autoload.php\"; require \"vendor/autoload.php\"; echo \"autoload ok\\n\";'",
         "phpcs": "phpcs",
         "phpcbf": "phpcbf"
     },

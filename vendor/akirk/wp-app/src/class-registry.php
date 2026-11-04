@@ -2,6 +2,46 @@
 
 namespace WpApp;
 
+if ( ! defined( 'WP_APP_DIR' ) ) {
+    define( 'WP_APP_DIR', dirname( __DIR__ ) );
+}
+
+// Load the rest of this copy of wp-app from here rather than trusting the
+// Composer files autoload. Several plugins can bundle wp-app; the first
+// autoloader to run wins, and its generated file list may predate files
+// added in a newer version (a vendor copy updated without dump-autoload,
+// or an older plugin whose list is simply shorter). Every file guards its
+// own declarations, so this is idempotent and keeps all classes and
+// functions coming from the same copy.
+//
+// This runs before the class guard below on purpose: PHP declares this
+// file's class at compile time, so the guard is already true for the
+// first copy loaded and would skip the loader.
+//
+// Composer's files autoload will try to `require` these same files again
+// right after this one, and a second compile of a file whose class is
+// already declared is a fatal error under opcache (the class_exists guard
+// never runs). Marking each file as loaded in Composer's registry, keyed
+// the way Composer keys it (md5 of "package:path"), makes it skip them.
+foreach ( [
+    'class-openstation.php',
+    'class-settings.php',
+    'class-pwa.php',
+    'class-router.php',
+    'class-masterbar.php',
+    'class-themes.php',
+    'class-wpapp.php',
+    'class-client-encrypted-fields.php',
+    'BaseStorage.php',
+    'abstract-baseapp.php',
+    'functions.php',
+    'rest/class-access.php',
+] as $wp_app_file ) {
+    $GLOBALS['__composer_autoload_files'][ md5( 'akirk/wp-app:src/' . $wp_app_file ) ] = true;
+    require_once __DIR__ . '/' . $wp_app_file;
+}
+unset( $wp_app_file );
+
 if ( class_exists( 'WpApp\Registry' ) ) {
     return;
 }
@@ -94,6 +134,8 @@ class Registry {
         if ( class_exists( __NAMESPACE__ . '\Settings' ) ) {
             Settings::init();
         }
+
+        Openstation::init();
 
         self::$hooks_initialized = true;
     }
@@ -230,5 +272,9 @@ class Registry {
         self::$hooks_initialized = false;
         self::$app_capabilities  = [];
         self::$app_metadata      = [];
+
+        if ( class_exists( __NAMESPACE__ . '\Openstation' ) ) {
+            Openstation::reset();
+        }
     }
 }

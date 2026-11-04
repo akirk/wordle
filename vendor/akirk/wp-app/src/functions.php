@@ -4,8 +4,17 @@
  * Global functions for WpApp framework
  */
 
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+    require_once __DIR__ . '/class-cli.php';
+
+    if ( ! defined( 'WP_APP_CLI_REGISTERED' ) && class_exists( 'WpApp\Cli' ) ) {
+        define( 'WP_APP_CLI_REGISTERED', true );
+        WP_CLI::add_command( 'app', 'WpApp\Cli' );
+    }
+}
+
 if ( ! defined( 'WP_APP_VERSION' ) ) {
-    define( 'WP_APP_VERSION', '1.4.0' );
+    define( 'WP_APP_VERSION', '2.1.0' );
 }
 
 if ( ! function_exists( 'wp_app_is_app_request' ) ) {
@@ -38,6 +47,7 @@ if ( ! function_exists( 'wp_app_head' ) ) {
         }
 
         if ( function_exists( 'wp_head' ) ) {
+            wp_app_remove_core_title_tag();
             wp_head();
         } else {
             // Basic meta tags (fallback when WordPress is not present)
@@ -60,6 +70,20 @@ if ( ! function_exists( 'wp_app_head' ) ) {
         wp_app_do_scoped_action( 'wp_app_head_meta' );
         wp_app_do_scoped_action( 'wp_app_head_styles' );
         wp_app_do_scoped_action( 'wp_app_head_scripts' );
+    }
+}
+
+if ( ! function_exists( 'wp_app_remove_core_title_tag' ) ) {
+    /**
+     * Keep core from printing the site's <title> in wp_head().
+     *
+     * App templates write their own <title> with wp_app_title(); with a theme
+     * that supports title-tag, wp_head() would add a second one.
+     */
+    function wp_app_remove_core_title_tag() {
+        remove_action( 'wp_head', '_wp_render_title_tag', 1 );
+        // Block themes replace the classic title tag with this one.
+        remove_action( 'wp_head', '_block_template_render_title_tag', 1 );
     }
 }
 
@@ -236,6 +260,34 @@ if ( ! function_exists( 'wp_app_normalize_asset_scope' ) ) {
     }
 }
 
+if ( ! function_exists( 'wp_app_warn_missing_asset_scope' ) ) {
+    /**
+     * Complain when an asset is enqueued without naming an app.
+     *
+     * An omitted scope resolves to whatever is rendering at that moment, which
+     * is almost never what the caller means: at plugin load nothing is
+     * rendering, so the asset lands on the global hook and loads on every app's
+     * pages; during another app's render it lands on that app's hook. Neither
+     * looks wrong at the call site, so say so out loud instead.
+     *
+     * @param string $function Name of the function that was called.
+     */
+    function wp_app_warn_missing_asset_scope( $function ) {
+        if ( ! function_exists( '_doing_it_wrong' ) ) {
+            return;
+        }
+
+        _doing_it_wrong(
+            esc_html( $function ),
+            esc_html(
+                'Pass the app path as the $scope argument. Without it the scope is taken from whichever app is rendering, '
+                . "which puts the asset on every app's pages when nothing is. Pass 'global' if that is genuinely intended."
+            ),
+            '1.7.0'
+        );
+    }
+}
+
 if ( ! function_exists( 'wp_app_get_scoped_hook_name' ) ) {
     /**
      * Build a global or app-scoped hook name.
@@ -273,11 +325,18 @@ if ( ! function_exists( 'wp_app_do_scoped_action' ) ) {
 
 
 
-if ( ! function_exists( 'wp_app_title' ) ) {
+if ( ! function_exists( 'wp_app_get_title' ) ) {
     /**
-     * Generate page title for app pages
+     * The page title for an app page, as plain unescaped text.
+     *
+     * Escape it yourself for whatever context you put it in. For the common
+     * case of printing it into <title>, use wp_app_the_title() instead.
+     *
+     * @param string $title     Title to use. Defaults to one derived from the route.
+     * @param string $separator Separator between the title and the site name.
+     * @return string Unescaped title text.
      */
-    function wp_app_title( $title = '', $separator = '-' ) {
+    function wp_app_get_title( $title = '', $separator = '-' ) {
         $site_name = get_bloginfo( 'name' );
 
         if ( empty( $title ) ) {
@@ -291,25 +350,69 @@ if ( ! function_exists( 'wp_app_title' ) ) {
         }
 
         if ( $site_name ) {
-            return esc_html( $title . ' ' . $separator . ' ' . $site_name );
+            return $title . ' ' . $separator . ' ' . $site_name;
         }
 
-        return esc_html( $title );
+        return $title;
+    }
+}
+
+if ( ! function_exists( 'wp_app_the_title' ) ) {
+    /**
+     * Print the page title for an app page, escaped for HTML.
+     *
+     * Follows the core the_title()/get_the_title() split: this one prints and
+     * returns nothing, wp_app_get_title() returns the raw text. Printing here
+     * rather than returning escaped markup is what lets a caller write
+     * `<title><?php wp_app_the_title(); ?></title>` and have PHPCS see the
+     * escaping instead of needing an ignore comment at every call site.
+     *
+     * @param string $title     Title to use. Defaults to one derived from the route.
+     * @param string $separator Separator between the title and the site name.
+     * @return void
+     */
+    function wp_app_the_title( $title = '', $separator = '-' ) {
+        echo esc_html( wp_app_get_title( $title, $separator ) );
+    }
+}
+
+if ( ! function_exists( 'wp_app_title' ) ) {
+    /**
+     * Generate page title for app pages, escaped for HTML.
+     *
+     * @deprecated 1.8.0 Use wp_app_the_title() to print, or wp_app_get_title()
+     *                   to get the raw text. Returning escaped markup means
+     *                   callers cannot reuse the value in an attribute or in
+     *                   JSON without double-encoding it, and PHPCS cannot tell
+     *                   that `echo wp_app_title()` is safe.
+     *
+     * @param string $title     Title to use. Defaults to one derived from the route.
+     * @param string $separator Separator between the title and the site name.
+     * @return string Title escaped with esc_html().
+     */
+    function wp_app_title( $title = '', $separator = '-' ) {
+        return esc_html( wp_app_get_title( $title, $separator ) );
     }
 }
 
 if ( ! function_exists( 'wp_app_language_attributes' ) ) {
     /**
-     * Output or return language attributes for the HTML tag.
+     * Print or return language attributes for the HTML tag.
      *
-     * @param bool $echo Whether to echo the attributes. Defaults to true.
-     * @return string Language attributes.
+     * Follows core: language_attributes() prints and returns nothing,
+     * get_language_attributes() returns. Returning the string while also
+     * printing it made `echo wp_app_language_attributes()` emit the attributes
+     * twice, which is the form this used to be documented with.
+     *
+     * @param bool $echo Whether to print the attributes. Defaults to true.
+     * @return string Language attributes, or an empty string when printing.
      */
     function wp_app_language_attributes( $echo = true ) {
         if ( function_exists( 'get_language_attributes' ) ) {
             $attributes = get_language_attributes();
             if ( $echo ) {
                 echo $attributes; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by WordPress.
+                return '';
             }
             return $attributes;
         }
@@ -335,6 +438,7 @@ if ( ! function_exists( 'wp_app_language_attributes' ) ) {
         $attributes = implode( ' ', $attributes );
         if ( $echo ) {
             echo $attributes; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attribute values are escaped above.
+            return '';
         }
 
         return $attributes;
@@ -345,7 +449,7 @@ if ( ! function_exists( 'wp_app_enqueue_style' ) ) {
     /**
      * Enqueue a style for app pages
      */
-    function wp_app_enqueue_style( $handle, $src = '', $deps = [], $ver = false, $scope = null ) {
+    function wp_app_enqueue_style( $handle, $src, $deps, $ver, $scope ) {
         add_action(
             wp_app_get_scoped_hook_name( 'wp_app_head_styles', $scope ),
             function () use ( $handle, $src, $deps, $ver ) {
@@ -365,12 +469,23 @@ if ( ! function_exists( 'wp_app_enqueue_script' ) ) {
     /**
      * Enqueue a script for app pages
      */
-    function wp_app_enqueue_script( $handle, $src = '', $deps = [], $ver = false, $in_footer = true, $scope = null ) {
-        $hook = wp_app_get_scoped_hook_name( $in_footer ? 'wp_app_body_close' : 'wp_app_head_scripts', $scope );
+    function wp_app_enqueue_script( $handle, $src, $deps, $ver, $in_footer, $scope ) {
+        if ( function_exists( 'wp_register_script' ) ) {
+            wp_register_script( $handle, $src, $deps, $ver, $in_footer );
+        }
+
+        $print_in_footer = is_array( $in_footer ) ? ! empty( $in_footer['in_footer'] ) : (bool) $in_footer;
+        $hook            = wp_app_get_scoped_hook_name( $print_in_footer ? 'wp_app_body_close' : 'wp_app_head_scripts', $scope );
 
         add_action(
             $hook,
             function () use ( $handle, $src, $deps, $ver ) {
+				if ( function_exists( 'wp_enqueue_script' ) && function_exists( 'wp_scripts' ) ) {
+					wp_enqueue_script( $handle );
+					wp_scripts()->do_items( [ $handle ] );
+					return;
+				}
+
 				if ( $src ) {
 					$url = $src;
 					if ( $ver ) {
@@ -424,7 +539,8 @@ if ( ! function_exists( 'wp_app_get_asset_url' ) ) {
         $path = ltrim( (string) $path, '/' );
 
         if ( defined( 'WP_PLUGIN_DIR' ) && defined( 'WP_PLUGIN_URL' ) ) {
-            $plugin_dir = rtrim( str_replace( '\\', '/', WP_PLUGIN_DIR ), '/' );
+            $package_dir = realpath( defined( 'WP_APP_DIR' ) ? WP_APP_DIR : dirname( __DIR__ ) );
+            $plugin_dir  = rtrim( str_replace( '\\', '/', WP_PLUGIN_DIR ), '/' );
 
             foreach ( get_included_files() as $included_file ) {
                 $included_file = str_replace( '\\', '/', $included_file );
@@ -433,9 +549,27 @@ if ( ! function_exists( 'wp_app_get_asset_url' ) ) {
                     continue;
                 }
 
-                $candidate = dirname( $included_file ) . '/akirk/wp-app/assets/' . $path;
+                $candidate_dir = dirname( $included_file ) . '/akirk/wp-app';
+
+                if ( ! $package_dir || realpath( $candidate_dir ) !== $package_dir ) {
+                    continue;
+                }
+
+                $candidate = str_replace( '\\', '/', $candidate_dir . '/assets/' . $path );
 
                 if ( file_exists( $candidate ) && 0 === strpos( $candidate, $plugin_dir . '/' ) ) {
+                    return rtrim( WP_PLUGIN_URL, '/' ) . substr( $candidate, strlen( $plugin_dir ) );
+                }
+            }
+
+            foreach ( (array) glob( $plugin_dir . '/*/vendor/akirk/wp-app', GLOB_ONLYDIR ) as $candidate_dir ) {
+                if ( ! $package_dir || realpath( $candidate_dir ) !== $package_dir ) {
+                    continue;
+                }
+
+                $candidate = str_replace( '\\', '/', $candidate_dir . '/assets/' . $path );
+
+                if ( file_exists( $candidate ) ) {
                     return rtrim( WP_PLUGIN_URL, '/' ) . substr( $candidate, strlen( $plugin_dir ) );
                 }
             }
@@ -449,9 +583,9 @@ if ( ! function_exists( 'wp_app_enqueue_crypto_runtime' ) ) {
     /**
      * Enqueue the WpApp client-side encryption runtime for app pages.
      *
-     * @param string|array|null $scope Optional app slug, or array with an app key.
+     * @param string|array $scope App slug, or array with an app key.
      */
-    function wp_app_enqueue_crypto_runtime( $scope = null ) {
+    function wp_app_enqueue_crypto_runtime( $scope ) {
         wp_app_enqueue_script(
             'wp-app-crypto',
             wp_app_get_asset_url( 'wp-app-crypto.js' ),
@@ -467,9 +601,9 @@ if ( ! function_exists( 'wp_app_enqueue_encrypted_fields_runtime' ) ) {
     /**
      * Enqueue the WpApp encrypted fields data client for app pages.
      *
-     * @param string|array|null $scope Optional app slug, or array with an app key.
+     * @param string|array $scope App slug, or array with an app key.
      */
-    function wp_app_enqueue_encrypted_fields_runtime( $scope = null ) {
+    function wp_app_enqueue_encrypted_fields_runtime( $scope ) {
         wp_app_enqueue_crypto_runtime( $scope );
         wp_app_enqueue_script(
             'wp-app-encrypted-fields',
@@ -500,6 +634,10 @@ if ( ! function_exists( 'wp_app_add_inline_style' ) ) {
      * Add inline CSS for app pages
      */
     function wp_app_add_inline_style( $handle, $css, $scope = null ) {
+        if ( null === $scope ) {
+            wp_app_warn_missing_asset_scope( __FUNCTION__ );
+        }
+
         add_action(
             wp_app_get_scoped_hook_name( 'wp_app_head_styles', $scope ),
             function () use ( $handle, $css ) {
@@ -516,6 +654,10 @@ if ( ! function_exists( 'wp_app_add_inline_script' ) ) {
      * Add inline JavaScript for app pages
      */
     function wp_app_add_inline_script( $handle, $js, $in_footer = true, $scope = null ) {
+        if ( null === $scope ) {
+            wp_app_warn_missing_asset_scope( __FUNCTION__ );
+        }
+
         $hook = wp_app_get_scoped_hook_name( $in_footer ? 'wp_app_body_close' : 'wp_app_head_scripts', $scope );
 
         add_action(
