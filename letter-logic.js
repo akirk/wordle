@@ -17,7 +17,7 @@ function shouldMarkAsWrongLocation(guess, letter, currentIndex, targetWord) {
   var correctPositions = 0
   for (var i = 0; i < guess.length; i++) {
     if (guess[i] === letter && targetWord[i] === letter) {
-      // Exact-position matches deliberately not reserved during CI validation.
+      correctPositions++
     }
   }
   
